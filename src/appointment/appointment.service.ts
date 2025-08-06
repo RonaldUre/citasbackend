@@ -41,61 +41,61 @@ export class AppointmentService {
     });
   }
 
-async findAll(params: {
-  page?: number;
-  limit?: number;
-  userId?: number;
-  clientId?: number;
-  status?: AppointmentStatus;
-  from?: string;
-  to?: string;
-}) {
-  const { page = 1, limit = 10, userId, clientId, status, from, to } = params;
+  async findAll(params: {
+    page?: number;
+    limit?: number;
+    userId?: number;
+    clientId?: number;
+    status?: AppointmentStatus;
+    from?: string;
+    to?: string;
+  }) {
+    const { page = 1, limit = 10, userId, clientId, status, from, to } = params;
 
-  const skip = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-  const where: any = {};
+    const where: any = {};
 
-  if (userId) where.userId = userId;
-  if (clientId) where.clientId = clientId;
-  if (status) where.status = status;
-  if (from || to) {
-    where.date = {};
-    if (from) where.date.gte = new Date(from);
-    if (to) where.date.lte = new Date(to);
-  }
+    if (userId) where.userId = userId;
+    if (clientId) where.clientId = clientId;
+    if (status) where.status = status;
+    if (from || to) {
+      where.date = {};
+      if (from) where.date.gte = new Date(from);
+      if (to) where.date.lte = new Date(to);
+    }
 
-  const [data, total] = await this.prisma.$transaction([
-    this.prisma.appointment.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { date: "asc" },
-      include: {
-        client: {
-          select: { id: true, name: true },
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.appointment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { date: "asc" },
+        include: {
+          client: {
+            select: { id: true, name: true },
+          },
+          user: {
+            select: { id: true, name: true },
+          },
+          service: {
+            select: { id: true, name: true },
+          },
         },
-        user: {
-          select: { id: true, name: true },
-        },
-        service: {
-          select: { id: true, name: true },
-        },
+      }),
+      this.prisma.appointment.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-    }),
-    this.prisma.appointment.count({ where }),
-  ]);
-
-  return {
-    data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
+    };
+  }
 
   async findOne(id: number) {
     const appointment = await this.prisma.appointment.findUnique({
@@ -112,20 +112,21 @@ async findAll(params: {
   }
 
   async update(id: number, dto: UpdateAppointmentDto) {
-    // Validar que user exista
-    const user = await this.prisma.user.findUnique({
-      where: { id: dto.userId },
-    });
-    if (!user) throw new NotFoundException("Profesional no encontrado");
+    if (dto.userId !== undefined) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: dto.userId },
+      });
+      if (!user) throw new NotFoundException("Profesional no encontrado");
+    }
 
-    // Validar que client exista
-    const client = await this.prisma.client.findUnique({
-      where: { id: dto.clientId },
-    });
-    if (!client) throw new NotFoundException("Cliente no encontrado");
+    if (dto.clientId !== undefined) {
+      const client = await this.prisma.client.findUnique({
+        where: { id: dto.clientId },
+      });
+      if (!client) throw new NotFoundException("Cliente no encontrado");
+    }
 
-    // Validar que service exista (si se envió)
-    if (dto.serviceId) {
+    if (dto.serviceId !== undefined) {
       const service = await this.prisma.service.findUnique({
         where: { id: dto.serviceId },
       });
@@ -145,6 +146,13 @@ async findAll(params: {
       }
       throw error;
     }
+  }
+
+  async updateStatus(id: number, status: AppointmentStatus) {
+    return this.prisma.appointment.update({
+      where: { id },
+      data: { status },
+    });
   }
 
   async remove(id: number): Promise<void> {

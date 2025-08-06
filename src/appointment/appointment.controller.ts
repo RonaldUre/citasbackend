@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Param,
   Body,
@@ -12,19 +13,19 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common';
-import { AppointmentService } from './appointment.service';
-import { CreateAppointmentDto } from './dto/create-appointment.dto';
-import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+} from "@nestjs/common";
+import { AppointmentService } from "./appointment.service";
+import { CreateAppointmentDto } from "./dto/create-appointment.dto";
+import { UpdateAppointmentDto } from "./dto/update-appointment.dto";
 
-import { UserRole, AppointmentStatus } from '@prisma/client';
+import { UserRole, AppointmentStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.PROFESSIONAL)
-@Controller('appointments')
+@Controller("appointments")
 export class AppointmentController {
   constructor(private readonly appointmentService: AppointmentService) {}
 
@@ -35,13 +36,13 @@ export class AppointmentController {
 
   @Get()
   findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('userId') userId?: number,
-    @Query('clientId') clientId?: number,
-    @Query('status') status?: AppointmentStatus,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query("userId") userId?: number,
+    @Query("clientId") clientId?: number,
+    @Query("status") status?: AppointmentStatus,
+    @Query("from") from?: string,
+    @Query("to") to?: string
   ) {
     return this.appointmentService.findAll({
       page,
@@ -54,22 +55,30 @@ export class AppointmentController {
     });
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
     return this.appointmentService.findOne(id);
   }
 
-  @Put(':id')
+  @Put(":id")
   update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateAppointmentDto,
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateAppointmentDto
   ) {
     return this.appointmentService.update(id, dto);
   }
 
-  @Delete(':id')
+  @Patch(":id/status")
+  updateStatus(
+    @Param("id", ParseIntPipe) id: number,
+    @Body("status") status: AppointmentStatus
+  ) {
+    return this.appointmentService.updateStatus(id, status);
+  }
+
+  @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  remove(@Param("id", ParseIntPipe) id: number): Promise<void> {
     return this.appointmentService.remove(id).then(() => undefined);
   }
 }
