@@ -1,36 +1,55 @@
+// src/modules/service/service.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
+import {
+  ServiceRepository,
+  CreateServiceInput,
+  UpdateServiceInput,
+} from './repository';
+
+import { toResponse, toResponseList } from './mappers/service.mapper';
+
 @Injectable()
 export class ServiceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: ServiceRepository) {}
 
   async create(dto: CreateServiceDto) {
-    return this.prisma.service.create({ data: dto });
+    const input: CreateServiceInput = {
+      name: dto.name,
+      description: dto.description ?? null,
+      duration: dto.duration,
+      price: dto.price ?? null,
+    };
+    const entity = await this.repo.create(input);
+    return toResponse(entity); // ⬅️ mantiene el shape actual
   }
 
   async findAll() {
-    return this.prisma.service.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const entities = await this.repo.findMany();
+    return toResponseList(entities); // ⬅️ mismo shape que antes
   }
 
   async findOne(id: number) {
-    const service = await this.prisma.service.findUnique({ where: { id } });
-    if (!service) throw new NotFoundException('Servicio no encontrado');
-    return service;
+    const entity = await this.repo.findById(id);
+    if (!entity) throw new NotFoundException('Servicio no encontrado');
+    return toResponse(entity);
   }
 
   async update(id: number, dto: UpdateServiceDto) {
+    const input: UpdateServiceInput = {
+      name: dto.name ?? undefined,
+      description: (dto.description ?? undefined) as string | null | undefined,
+      duration: dto.duration ?? undefined,
+      price: (dto.price ?? undefined) as number | null | undefined,
+    };
+
     try {
-      return await this.prisma.service.update({
-        where: { id },
-        data: dto,
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
+      const entity = await this.repo.update(id, input);
+      return toResponse(entity);
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
         throw new NotFoundException('Servicio no encontrado');
       }
       throw error;
@@ -39,9 +58,11 @@ export class ServiceService {
 
   async remove(id: number) {
     try {
-      return await this.prisma.service.delete({ where: { id } });
-    } catch (error) {
-      if (error.code === 'P2025') {
+      await this.repo.remove(id);
+      // controller ya devuelve 204 sin body
+      return;
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
         throw new NotFoundException('Servicio no encontrado');
       }
       throw error;

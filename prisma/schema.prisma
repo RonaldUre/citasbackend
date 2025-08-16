@@ -1,16 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.sqlite.prisma
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -20,7 +14,7 @@ model User {
   email      String    @unique
   password   String
   role       UserRole
-  avatar     String?   // URL de imagen opcional
+  avatar     String?
   createdAt  DateTime  @default(now())
   lastLogin  DateTime?
 
@@ -29,12 +23,12 @@ model User {
 }
 
 model Client {
-  id         Int       @id @default(autoincrement())
-  name       String
-  email      String?   @unique
-  phone      String?
-  notes      String?
-  createdAt  DateTime  @default(now())
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String?   @unique
+  phone       String?
+  notes       String?
+  createdAt   DateTime  @default(now())
 
   appointments Appointment[]
 }
@@ -48,7 +42,6 @@ model Appointment {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  // Relaciones
   user        User     @relation(fields: [userId], references: [id])
   userId      Int
 
@@ -58,14 +51,14 @@ model Appointment {
   service     Service? @relation(fields: [serviceId], references: [id])
   serviceId   Int?
 
-  reports     Report[] // Relación inversa
+  reports     Report[]
 }
 
 model Service {
   id          Int       @id @default(autoincrement())
   name        String
   description String?
-  duration    Int       // duración en minutos
+  duration    Int
   price       Float?
   createdAt   DateTime  @default(now())
 
@@ -79,7 +72,6 @@ model Report {
   hasRecovery      Boolean   @default(false)
   createdAt        DateTime  @default(now())
 
-  // Relaciones
   appointment      Appointment @relation(fields: [appointmentId], references: [id])
   appointmentId    Int
 
@@ -97,4 +89,4 @@ enum AppointmentStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
-} 
+}

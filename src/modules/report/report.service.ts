@@ -1,80 +1,106 @@
+import { Injectable, NotFoundException } from "@nestjs/common";
+
+import { CreateReportDto } from "./dto/create-report.dto";
+import { UpdateReportDto } from "./dto/update-report.dto";
+
 import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateReportDto } from './dto/create-report.dto';
-import { UpdateReportDto } from './dto/update-report.dto';
+  ReportRepository,
+  CreateReportInput,
+  UpdateReportInput,
+} from "./repository";
+
+import { AppointmentRepository } from "../../modules/appointment/repository"; // para validar existencia
 
 @Injectable()
 export class ReportService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly reports: ReportRepository,
+    private readonly appointments: AppointmentRepository // validar cita existente
+  ) {}
 
+  /** POST /reports */
   async create(dto: CreateReportDto, userId: number) {
-    // Validar que la cita exista
-    const appointment = await this.prisma.appointment.findUnique({
-      where: { id: dto.appointmentId },
-    });
-    if (!appointment) {
-      throw new NotFoundException('Cita asociada no encontrada');
-    }
+    // Validar que la cita exista (mantiene comportamiento actual)
+    const appt = await this.appointments.findByIdWithRelations(
+      dto.appointmentId
+    );
+    if (!appt) throw new NotFoundException("Cita asociada no encontrada");
 
-    return this.prisma.report.create({
-      data: {
-        description: dto.description,
-        isForEventCancel: dto.isForEventCancel,
-        hasRecovery: dto.hasRecovery,
-        appointmentId: dto.appointmentId,
-        createdById: userId,
-      },
-    });
+    const input: CreateReportInput = {
+      description: dto.description,
+      isForEventCancel: dto.isForEventCancel ?? false,
+      hasRecovery: dto.hasRecovery ?? false,
+      appointmentId: dto.appointmentId,
+      createdById: userId, // desde el request (controller)
+    };
+
+    return this.reports.create(input); // respuesta básica (sin includes)
   }
 
-  async findAll() {
-    return this.prisma.report.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+  /** GET /reports */
+  findAll() {
+    // lista básica (sin includes), mismo shape que hoy
+    return this.reports.findMany();
   }
 
+  /** GET /reports/:id */
   async findOne(id: number) {
-    const report = await this.prisma.report.findUnique({
-      where: { id },
-      include: {
-        createdBy: { select: { id: true, name: true } },
-        appointment: { select: { id: true, date: true, status: true } },
-      },
-    });
-    if (!report) {
-      throw new NotFoundException('Reporte no encontrado');
-    }
-    return report;
+    const report = await this.reports.findByIdWithRelations(id);
+    if (!report) throw new NotFoundException("Reporte no encontrado");
+    return report; // detalle con createdBy y appointment
   }
 
+  /** PUT /reports/:id */
   async update(id: number, dto: UpdateReportDto) {
+    const input: UpdateReportInput = {
+      description: dto.description ?? undefined,
+      isForEventCancel: dto.isForEventCancel ?? undefined,
+      hasRecovery: dto.hasRecovery ?? undefined,
+      appointmentId: dto.appointmentId ?? undefined,
+      createdById: dto.createdById ?? undefined,
+    };
+
     try {
-      return await this.prisma.report.update({
-        where: { id },
-        data: {
-          ...dto,
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException('Reporte no encontrado');
+      return await this.reports.update(id, input); // respuesta básica
+    } catch (error: any) {
+      if (error?.code === "P2025") {
+        throw new NotFoundException("Reporte no encontrado");
       }
       throw error;
     }
   }
 
+  /** DELETE /reports/:id */
   async remove(id: number): Promise<void> {
     try {
-      await this.prisma.report.delete({ where: { id } });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException('Reporte no encontrado');
+      await this.reports.remove(id);
+    } catch (error: any) {
+      if (error?.code === "P2025") {
+        throw new NotFoundException("Reporte no encontrado");
       }
       throw error;
     }
+  }
+
+  /** GET /reports/exists?appointmentIds=... */
+  async existsByAppointmentIds(
+    appointmentIds: number[]
+  ): Promise<Record<number, boolean>> {
+    const counts = await this.reports.countByAppointmentIds(appointmentIds);
+    const result: Record<number, boolean> = {};
+    // Inicializar en false todos los IDs solicitados
+    for (const id of appointmentIds) {
+      result[id] = false;
+    }
+    // Marcar true donde haya conteo > 0
+    for (const c of counts) {
+      result[c.appointmentId] = (c._count ?? 0) > 0;
+    }
+    return result;
+  }
+
+  /** GET /reports/by-appointment/:appointmentId/latest */
+  async findLatestByAppointment(appointmentId: number) {
+    return this.reports.findLatestByAppointmentId(appointmentId);
   }
 }
