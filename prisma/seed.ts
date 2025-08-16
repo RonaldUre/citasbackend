@@ -1,17 +1,18 @@
+// prisma/seed.ts
 import { PrismaClient, UserRole, AppointmentStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  // 1) Limpieza en orden de dependencias
+export async function runSeed() {
+  // 1) Clean tables
   await prisma.report.deleteMany({});
   await prisma.appointment.deleteMany({});
   await prisma.service.deleteMany({});
   await prisma.client.deleteMany({});
   await prisma.user.deleteMany({});
 
-  // 2) Datos base
+  // 2) Base data
   const hashedPassword = await bcrypt.hash('123456', 10);
 
   const admin = await prisma.user.create({
@@ -71,11 +72,14 @@ async function main() {
   console.log('✅ Seed completed');
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// If you run this file directly with `pnpm prisma:seed`
+if (require.main === module) {
+  runSeed()
+    .catch((e) => {
+      console.error('❌ Seed failed:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
