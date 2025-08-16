@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { seedOnBoot } from './seed-on-boot';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,11 +17,6 @@ async function bootstrap() {
     },
     credentials: true,
   });
-
-  if (process.env.SEED_ON_BOOT === 'true') {
-    console.log('Running seed on boot...');
-    await seedOnBoot();
-  }
 
   const port = Number(process.env.PORT) || 3000;
   await app.listen(port, '0.0.0.0');
