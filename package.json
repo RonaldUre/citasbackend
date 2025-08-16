@@ -11,6 +11,9 @@
     "render:build": "npx prisma generate && npx prisma db push && pnpm build",
     "start:prod": "node dist/main.js"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@nestjs/common": "^11.1.5",
     "@nestjs/config": "^4.0.2",
